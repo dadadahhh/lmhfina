@@ -1,112 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-   <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Word APIs Integration</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-
-        .header {
-            font-size: 24px;
-            margin-top: 20px;
-        }
-
-        .api-form {
-            margin: 20px;
-            padding: 10px;
-        }
-
-        .response {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <title>Average Review Scores</title>
+    <div>
+        <canvas id="myChart"></canvas>
+    </div>
 </head>
 <body>
-<div class="header">
-    <p>Liu Dailin and Liu Minghao</p>
-    <p>76397 and 75990</p>
-    <img src="../static/Liu.jpg" alt="Liu Dailin" width="100">
-    <img src="../static/Liu2.jpg" alt="Liu Minghao" width="100">
-</div>
+    <div class="header">
+        <p>Liu Dailin and Liu Minghao</p>
+        <p>76397 and 75990</p>
+        <img src="../static/Liu.jpg" alt="Liu Dailin" width="100">
+        <img src="../static/Liu2.jpg" alt="Liu Minghao" width="100">
+    </div>
 
-<div class="api-form">
-    <h3>Enable Redis</h3>
-    <input type="checkbox" id="enable_redis" onchange="toggleRedis()"> Enable Redis
-</div>
+    <script src="../static/chart.js"></script>
 
-<div class="api-form">
-    <h3>Closest Cities API</h3>
-    <input type="text" id="city" placeholder="City">
-    <input type="text" id="page_size" placeholder="page_size">
-    <input type="text" id="page" placeholder="page">
-    <button onclick="getClosestCities()">Get Closest Cities</button>
-</div>
+    <div class="api-form">
+        <h3>Average Review Scores API</h3>
+        <input type="text" id="city" placeholder="City">
+        <input type="text" id="page" placeholder="page">
+        <button onclick="getAverageReviewScores()">Get Average Review Scores</button>
+    </div>
 
-<div class="api-form">
-    <h3>Review API</h3>
-    <input type="text" id="classes" placeholder="classes">
-    <input type="text" id="k" placeholder="k">
-    <input type="text" id="words" placeholder="words">
-    <button onclick="getReview()">Get Reviews</button>
-</div>
+    <!-- Chart Container -->
+    <div class="chart-container">
+        <canvas id="averageReviewScoresChart"></canvas>
+    </div>
 
-<!-- Response -->
-<div class="response" id="response"></div>
+    <!-- Response -->
+    <div class="response" id="response"></div>
 
-<script>
-    function getClosestCities() {
-        const city = document.getElementById('city').value;
-        const page_size = document.getElementById('page_size').value;
-        const page = document.getElementById('page').value;
+    <script>
+        function getAverageReviewScores() {
+            const city = document.getElementById('city').value;
+            const page = document.getElementById('page').value;
 
-        fetch(`/closest_cities?city=${city}&page_size=${page_size}&page=${page}`)
-            .then(response => response.json())
-            .then(data => {
-                console.log('Success:', data);
-                const responseElement = document.getElementById('response');
-                let listHTML = '<ul>';
-                data.result.forEach(item => {
-                    listHTML += `<li>${item.city}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${item.distance}</li>`;
-                });
-                listHTML += '</ul>';
-                responseElement.innerHTML = listHTML;
-                console.log('Success:', data);
-            })
-            .catch(error => console.error('Error:', error));
-    }
+            fetch(`/average_review_scores?city=${city}&page=${page}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Success:', data);
+                    const responseElement = document.getElementById('response');
 
-    function getReview() {
-        const words = document.getElementById('words').value;
-        const k = document.getElementById('k').value;
-        const classes = document.getElementById('classes').value;
+                    // Extract data for Chart.js
+                    const cities = data.result.map(item => item.city);
+                    const reviewScores = data.result.map(item => item.average_review_score);
 
-        fetch(`/knn_reviews?classes=${classes}&k=${k}&words=${words}`)
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('response').innerHTML = JSON.stringify(data.result);
-
-                console.log('Success:', data);
-            })
-            .catch(error => console.error('Error:', error));
-    }
-
-
-
-    function toggleRedis() {
-        const enableRedisCheckbox = document.getElementById('enable_redis');
-        const enableRedis = enableRedisCheckbox.checked;
-        if (enableRedis) {
-            console.log('Redis enabled');
-        } else {
-            console.log('Redis disabled');
+                    // Draw Chart
+                    drawLineChart(cities, reviewScores);
+                })
+                .catch(error => console.error('Error:', error));
         }
-    }
-</script>
+
+        function drawLineChart(labels, data) {
+            const ctx = document.getElementById('averageReviewScoresChart').getContext('2d');
+
+            // 获取现有的图表实例
+            const existingChart = Chart.getChart(ctx);
+
+            // 如果存在图表实例，则销毁它
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Average Review Score',
+                        data: data,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'City'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Average Review Score'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>
