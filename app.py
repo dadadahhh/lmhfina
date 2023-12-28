@@ -46,7 +46,7 @@ def get_reviews_data():
 
     # 执行查询
 
-    reviews_data_q = list(client.QueryDocuments(f"dbs/{DATABASE_ID}/colls/{COLLECTION_ID2}", query2, options))[:1000]
+    reviews_data_q = list(client.QueryDocuments(f"dbs/{DATABASE_ID}/colls/{COLLECTION_ID2}", query2, options))
 
 
     reviews_data = []
