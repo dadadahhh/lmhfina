@@ -5,6 +5,7 @@ from flask import jsonify, request, Response
 from collections import defaultdict
 import heapq
 import redis
+import pandas as pd
 
 # redis_client = redis.StrictRedis(host='r-bp1t5jikzfiac5go4lpd.redis.rds.aliyuncs.com',password="wasd8456@", port=6379, db=0)
 app = Flask(__name__)
@@ -40,19 +41,19 @@ def get_cities_data():
 
     return cities_data
 def get_reviews_data():
-    query2 = "SELECT c.city, c.review FROM c"
+    query2 = "SELECT c.city, c.score FROM c"
     options = {"enableCrossPartitionQuery": True}  # 如果集合是分区集合，需要启用跨分区查询
 
     # 执行查询
 
-    reviews_data_q = list(client.QueryDocuments(f"dbs/{DATABASE_ID}/colls/{COLLECTION_ID2}", query2, options))
+    reviews_data_q = list(client.QueryDocuments(f"dbs/{DATABASE_ID}/colls/{COLLECTION_ID2}", query2, options))[:1000]
 
 
     reviews_data = []
     for item in reviews_data_q:
         reviews_data.append({
             "city": item['city'],
-            "review": item['review']
+            "score": item['score']
         })
 
     return reviews_data
@@ -120,12 +121,68 @@ def closest_cities():
 
     # Return response
     return Response(result_json, content_type='application/json')
-
 def calculate_eular_distance(x1, y1, x2, y2):
     x1, y1, x2, y2 = map(float, [x1, y1, x2, y2])
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
+def get_reviews_data1():
+    file = pd.read_csv('static/amazon-reviews.csv')
+    file = file[['city', 'score']]
+    return file.to_dict(orient='records')
 
+@app.route('/average_review', methods=['GET'])
+def average_review():
+    city_name = request.args.get('city')
+    page_size = 10
+    page = int(request.args.get('page', 0))
+
+    # 尝试从 Redis 中获取缓存数据
+    cached_result = redis_client.get(f'average_review:{city_name}:{page}')
+
+    if cached_result:
+        # 如果缓存数据存在，直接返回
+        print("从缓存中获取数据")
+        return Response(cached_result, content_type='application/json')
+
+    cities_data = get_cities_data()
+    city_data = next((city for city in cities_data if city["city"] == city_name), None)
+
+    if not city_data:
+        return jsonify({"error": "City not found"}), 404
+
+    # Process data and calculate Eular distances
+    all_cities_distances = []
+    for other_city in cities_data:
+        if other_city["city"] != city_name:
+            distance = calculate_eular_distance(city_data["lat"], city_data["lng"], other_city["lat"], other_city["lng"])
+            all_cities_distances.append({"city": other_city["city"], "distance": distance})
+
+    # Sort cities by distance
+    sorted_cities = sorted(all_cities_distances, key=lambda x: x["distance"])
+
+    display_cities = [city["city"] for city in sorted_cities]
+
+    reviews_data = get_reviews_data()
+
+    result = []
+    for city1 in display_cities:
+        # Fetch reviews data from Cosmos DB for the city
+        reviews_city = [review for review in reviews_data if review["city"] == city1]
+
+        if len(reviews_city) != 0 :
+            # Calculate the average review score
+            total_score = sum(float(review["score"]) for review in reviews_city)
+            average_score = total_score / len(reviews_city)
+            result.append({"city": city1, "average_review_score": average_score})
+    start_index = page * page_size
+    end_index = (page + 1) * page_size
+    result = result[start_index:end_index]
+
+    print(result)
+    result_json = json.dumps({"result": result})
+    redis_client.setex(f'average_review:{city_name}:{page}', 3600, result_json)
+
+    return Response(result_json, content_type='application/json')
 
 
 

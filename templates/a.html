@@ -37,7 +37,7 @@
             const city = document.getElementById('city').value;
             const page = document.getElementById('page').value;
 
-            fetch(`/average_review_scores?city=${city}&page=${page}`)
+            fetch(`/average_review?city=${city}&page=${page}`)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Success:', data);
