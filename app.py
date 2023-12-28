@@ -2,10 +2,8 @@ import json
 import time
 from flask import Flask, render_template
 from flask import jsonify, request, Response
-from collections import defaultdict
-import heapq
 import redis
-import pandas as pd
+
 
 # redis_client = redis.StrictRedis(host='r-bp1t5jikzfiac5go4lpd.redis.rds.aliyuncs.com',password="wasd8456@", port=6379, db=0)
 app = Flask(__name__)
@@ -125,10 +123,6 @@ def calculate_eular_distance(x1, y1, x2, y2):
     x1, y1, x2, y2 = map(float, [x1, y1, x2, y2])
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
-def get_reviews_data1():
-    file = pd.read_csv('static/amazon-reviews.csv')
-    file = file[['city', 'score']]
-    return file.to_dict(orient='records')
 
 @app.route('/average_review', methods=['GET'])
 def average_review():
